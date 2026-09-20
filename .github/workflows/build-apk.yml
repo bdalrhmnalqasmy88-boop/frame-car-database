@@ -17,19 +17,38 @@ jobs:
         with:
           node-version: 20
 
-      - name: Unzip Project Files
+      - name: Unzip & Flatten Files
         run: |
           if ls *.zip 1> /dev/null 2>&1; then
             echo "Unzipping project file..."
             unzip -o *.zip
+            # إذا كانت الملفات مستخرجة داخل مجلد فرعي، انقلها للجذر
+            ZIP_DIR=$(find . -maxdepth 2 -name "package.json" -not -path "./package.json" -exec dirname {} \;)
+            if [ -n "$ZIP_DIR" ]; then
+              echo "Moving files from $ZIP_DIR to root..."
+              cp -rn $ZIP_DIR/* . || true
+            fi
           fi
 
       - name: Install Dependencies & Build Web Assets
         run: |
           npm install --legacy-peer-deps || true
           npm run build || true
+          
+          # التأكد من إنشاء مجلد dist ووضع ملفات الـ HTML والـ JS بداخله
           mkdir -p dist
           if [ -d "build" ]; then cp -r build/* dist/ 2>/dev/null || true; fi
+          if [ -d "out" ]; then cp -r out/* dist/ 2>/dev/null || true; fi
+          
+          # إذا لم يوجد index.html في dist، ابحث عنه وانقله
+          if [ ! -f "dist/index.html" ]; then
+            FOUND_INDEX=$(find . -name "index.html" -not -path "./dist/*" -not -path "./node_modules/*" | head -n 1)
+            if [ -n "$FOUND_INDEX" ]; then
+              INDEX_DIR=$(dirname "$FOUND_INDEX")
+              echo "Found index.html in $INDEX_DIR, copying to dist..."
+              cp -r $INDEX_DIR/* dist/
+            fi
+          fi
 
       - name: Setup Clean Capacitor & Android
         run: |
