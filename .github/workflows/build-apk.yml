@@ -28,6 +28,8 @@ jobs:
         run: |
           npm install --legacy-peer-deps || true
           npm run build || true
+          mkdir -p dist
+          if [ -d "build" ]; then cp -r build/* dist/ 2>/dev/null || true; fi
 
       - name: Setup Clean Capacitor & Android
         run: |
