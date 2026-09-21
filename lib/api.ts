@@ -30,6 +30,8 @@ function generateId(): string {
 }
 
 async function syncWithServer(): Promise<void> {
+  if (!supabase) return;
+
   const ops = await localGetPendingOps();
   for (const op of ops) {
     try {
@@ -73,6 +75,8 @@ async function syncWithServer(): Promise<void> {
 }
 
 async function uploadToSupabase(base64: string, fileName: string): Promise<string | null> {
+  if (!supabase) return null;
+
   try {
     const isDataUri = base64.startsWith('data:');
     const response = isDataUri ? await fetch(base64) : null;
@@ -92,6 +96,11 @@ async function uploadToSupabase(base64: string, fileName: string): Promise<strin
 // ─── Public API ────────────────────────────────────────────
 
 export async function fetchAllCars(): Promise<FetchResult> {
+  if (!supabase) {
+    const localCars = await getLocalCarsWithImages();
+    return { cars: localCars, fromCache: false };
+  }
+
   try {
     await syncWithServer();
     const { data, error } = await supabase
@@ -121,15 +130,20 @@ export async function fetchAllCars(): Promise<FetchResult> {
 
     return { cars: merged, fromCache: false };
   } catch (e) {
-    const localCars = await localGetAllCars();
-    const merged: CarFrame[] = [];
-    for (const car of localCars) {
-      const img = await localGetImage(car.id);
-      merged.push({ ...car, image_url: img ? base64ToDataUri(img) : car.image_url });
-    }
-    merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return { cars: merged, fromCache: true };
+    const localCars = await getLocalCarsWithImages();
+    return { cars: localCars, fromCache: true };
   }
+}
+
+async function getLocalCarsWithImages(): Promise<CarFrame[]> {
+  const localCars = await localGetAllCars();
+  const merged: CarFrame[] = [];
+  for (const car of localCars) {
+    const img = await localGetImage(car.id);
+    merged.push({ ...car, image_url: img ? base64ToDataUri(img) : car.image_url });
+  }
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return merged;
 }
 
 export async function searchCars(query: string): Promise<FetchResult> {
@@ -152,6 +166,8 @@ export async function getCarById(id: string): Promise<CarFrame | null> {
     const img = await localGetImage(id);
     return { ...car, image_url: img ? base64ToDataUri(img) : car.image_url };
   }
+
+  if (!supabase) return null;
 
   try {
     const { data, error } = await supabase

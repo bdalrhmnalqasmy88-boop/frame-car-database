@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { SplashScreen } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { I18nManager } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useServiceWorker } from '@/hooks/useServiceWorker';
@@ -12,8 +12,9 @@ import {
   Cairo_700Bold,
 } from '@expo-google-fonts/cairo';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 export default function RootLayout() {
@@ -27,9 +28,13 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    const hideSplash = async () => {
+      if (fontsLoaded || fontError) {
+        await SplashScreen.hideAsync().catch(() => undefined);
+      }
+    };
+
+    hideSplash();
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
