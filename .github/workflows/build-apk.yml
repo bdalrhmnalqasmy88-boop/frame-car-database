@@ -17,11 +17,20 @@ jobs:
         with:
           node-version: 20
 
+      - name: Move Subfolder to Root if Exists
+        run: |
+          # إذا كانت ملفات المشروع داخل مجلد فرعي يتم نقلها للجذر مباشرة
+          if [ -d "frame-car-database" ] && [ -f "frame-car-database/package.json" ]; then
+            echo "Moving inner project files to root..."
+            cp -r frame-car-database/* .
+            rm -rf frame-car-database
+          fi
+
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
 
-      - name: Force Package Name in app.json
+      - name: Force Fix app.json Package Name
         run: |
           node -e '
             const fs = require("fs");
@@ -32,6 +41,7 @@ jobs:
               if (!config.expo.android) config.expo.android = {};
               config.expo.android.package = "com.framedb.app";
               fs.writeFileSync(file, JSON.stringify(config, null, 2));
+              console.log("Updated app.json package name successfully!");
             }
           '
 
@@ -48,20 +58,18 @@ jobs:
       - name: Expo Prebuild
         env:
           NODE_ENV: production
+          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
           rm -rf android
           npx expo prebuild --platform android --clean
 
       - name: Build APK with Gradle
         env:
-          NODE_ENV: production
           EXPO_USE_COMMUNITY_AUTOLINKING: "1"
-          REACT_NATIVE_NODE_BINARY: /usr/local/bin/node
         run: |
-          export PATH=$PATH:/usr/local/bin
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m" -x test
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
