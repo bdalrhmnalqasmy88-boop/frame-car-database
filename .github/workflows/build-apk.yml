@@ -17,35 +17,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Handle Subfolder & Install
+      - name: Organize Files if Subfolder Exists
         run: |
           if [ -d "frame-car-database" ] && [ -f "frame-car-database/package.json" ]; then
             cp -r frame-car-database/* .
             rm -rf frame-car-database
           fi
-          npm install --legacy-peer-deps
 
-      - name: Inject Package Name Directly into app.json & package.json
+      - name: Install Dependencies
         run: |
-          node -e '
-            const fs = require("fs");
-            
-            // 1. تحديث app.json
-            if (fs.existsSync("app.json")) {
-              let app = JSON.parse(fs.readFileSync("app.json", "utf8"));
-              if (!app.expo) app.expo = {};
-              if (!app.expo.android) app.expo.android = {};
-              app.expo.android.package = "com.framedb.app";
-              fs.writeFileSync("app.json", JSON.stringify(app, null, 2));
-            }
-            
-            // 2. إجبار إضافة التكوين في package.json
-            if (fs.existsSync("package.json")) {
-              let pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-              if (!pkg.reactNative) pkg.reactNative = {};
-              fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
-            }
-          '
+          npm install --legacy-peer-deps
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -53,45 +34,36 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Accept Android Licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-      - name: Clean Old Native Directory
-        run: |
-          rm -rf android
-
-      - name: Generate Android Project via Expo
-        env:
-          NODE_ENV: production
-          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
-        run: |
-          npx expo prebuild --platform android --clean
-
-      - name: Hardcode Namespace in Gradle Files
+      - name: Inject Package directly to Expo Config
         run: |
           node -e '
             const fs = require("fs");
-            const gPath = "android/app/build.gradle";
-            if (fs.existsSync(gPath)) {
-              let content = fs.readFileSync(gPath, "utf8");
-              if (!content.includes("namespace")) {
-                content = content.replace(/defaultConfig\s*\{/, "defaultConfig {\n        applicationId \"com.framedb.app\"");
-                fs.writeFileSync(gPath, content);
-              }
+            let file = fs.existsSync("app.json") ? "app.json" : null;
+            if (file) {
+              let config = JSON.parse(fs.readFileSync(file, "utf8"));
+              if (!config.expo) config.expo = {};
+              config.expo.android = { package: "com.framedb.app" };
+              fs.writeFileSync(file, JSON.stringify(config, null, 2));
             }
           '
 
-      - name: Build APK File
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build APK via EAS Local
         env:
-          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
+          EAS_NO_VCS: "1"
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          eas build --platform android --profile preview --local --non-interactive || {
+            rm -rf android
+            npx expo prebuild --platform android
+            cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+          }
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frame-app-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            *.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
