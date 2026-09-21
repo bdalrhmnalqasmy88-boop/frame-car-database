@@ -21,9 +21,8 @@ jobs:
         run: |
           npm install --legacy-peer-deps
 
-      - name: Inject Package Name to app.json & Remove Old Android Directory
+      - name: Force Package Name in app.json
         run: |
-          # 1. إجبار إضافة package اسم الحزمة في app.json
           node -e '
             const fs = require("fs");
             let file = "app.json";
@@ -33,11 +32,8 @@ jobs:
               if (!config.expo.android) config.expo.android = {};
               config.expo.android.package = "com.framedb.app";
               fs.writeFileSync(file, JSON.stringify(config, null, 2));
-              console.log("SUCCESS: Package name inserted into app.json");
             }
           '
-          # 2. حذف مجلد android النقال القديم لمنع التعارض
-          rm -rf android
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -49,27 +45,30 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Expo Prebuild (Generate Fresh Android Project)
-        env:
-          NODE_ENV: production
-          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
+      - name: Generate Android Project via Expo
         run: |
-          npx expo prebuild --platform android --clean
+          rm -rf android
+          npx expo prebuild --platform android --no-install
 
-      - name: Fix Package Name in Native Build Files
+      - name: Hardcode Package Name in Android Manifest & Gradle
         run: |
-          # التأكد من وجود packageName داخل build.gradle
-          if [ -f "android/app/build.gradle" ]; then
-            sed -i 's/namespace .*/namespace "com.framedb.app"/' android/app/build.gradle || true
-          fi
+          node -e '
+            const fs = require("fs");
+            const gPath = "android/app/build.gradle";
+            if (fs.existsSync(gPath)) {
+              let content = fs.readFileSync(gPath, "utf8");
+              if (!content.includes("namespace")) {
+                content = content.replace(/android\s*\{/, "android {\n    namespace \"com.framedb.app\"");
+                fs.writeFileSync(gPath, content);
+              }
+            }
+          '
 
-      - name: Build APK with Gradle
-        env:
-          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
+      - name: Build APK File
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -x test
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
