@@ -41,14 +41,18 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Prebuild & Build APK
+      - name: Prebuild Android
         env:
-          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
+          NODE_ENV: production
         run: |
+          rm -rf android
           npx expo prebuild --platform android --clean
+
+      - name: Build APK with Gradle
+        run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m"
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
