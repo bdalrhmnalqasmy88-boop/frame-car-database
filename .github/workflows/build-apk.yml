@@ -17,13 +17,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: Unzip Project Files
+      - name: Unzip & Organize Project Files
         run: |
           if ls *.zip 1> /dev/null 2>&1; then
             echo "Unzipping project file..."
             unzip -o *.zip
-            if [ -d "project" ]; then
-              cp -rn project/* . || true
+          fi
+          
+          # نقل ملفات المشروع إذا كانت داخل مجلد فرعي إلى المجلد الرئيسي
+          if [ ! -f "package.json" ]; then
+            SUBDIR=$(find . -maxdepth 2 -name "package.json" -exec dirname {} \;)
+            if [ -n "$SUBDIR" ] && [ "$SUBDIR" != "." ]; then
+              echo "Moving files from $SUBDIR to root..."
+              cp -rn $SUBDIR/* . || true
             fi
           fi
 
