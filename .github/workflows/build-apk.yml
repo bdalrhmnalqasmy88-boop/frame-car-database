@@ -17,31 +17,33 @@ jobs:
         with:
           node-version: 20
 
-      - name: Move Subfolder to Root if Exists
+      - name: Handle Subfolder & Install
         run: |
-          # إذا كانت ملفات المشروع داخل مجلد فرعي يتم نقلها للجذر مباشرة
           if [ -d "frame-car-database" ] && [ -f "frame-car-database/package.json" ]; then
-            echo "Moving inner project files to root..."
             cp -r frame-car-database/* .
             rm -rf frame-car-database
           fi
-
-      - name: Install Dependencies
-        run: |
           npm install --legacy-peer-deps
 
-      - name: Force Fix app.json Package Name
+      - name: Inject Package Name Directly into app.json & package.json
         run: |
           node -e '
             const fs = require("fs");
-            let file = "app.json";
-            if (fs.existsSync(file)) {
-              let config = JSON.parse(fs.readFileSync(file, "utf8"));
-              if (!config.expo) config.expo = {};
-              if (!config.expo.android) config.expo.android = {};
-              config.expo.android.package = "com.framedb.app";
-              fs.writeFileSync(file, JSON.stringify(config, null, 2));
-              console.log("Updated app.json package name successfully!");
+            
+            // 1. تحديث app.json
+            if (fs.existsSync("app.json")) {
+              let app = JSON.parse(fs.readFileSync("app.json", "utf8"));
+              if (!app.expo) app.expo = {};
+              if (!app.expo.android) app.expo.android = {};
+              app.expo.android.package = "com.framedb.app";
+              fs.writeFileSync("app.json", JSON.stringify(app, null, 2));
+            }
+            
+            // 2. إجبار إضافة التكوين في package.json
+            if (fs.existsSync("package.json")) {
+              let pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              if (!pkg.reactNative) pkg.reactNative = {};
+              fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
             }
           '
 
@@ -55,15 +57,32 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Expo Prebuild
+      - name: Clean Old Native Directory
+        run: |
+          rm -rf android
+
+      - name: Generate Android Project via Expo
         env:
           NODE_ENV: production
           EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
-          rm -rf android
           npx expo prebuild --platform android --clean
 
-      - name: Build APK with Gradle
+      - name: Hardcode Namespace in Gradle Files
+        run: |
+          node -e '
+            const fs = require("fs");
+            const gPath = "android/app/build.gradle";
+            if (fs.existsSync(gPath)) {
+              let content = fs.readFileSync(gPath, "utf8");
+              if (!content.includes("namespace")) {
+                content = content.replace(/defaultConfig\s*\{/, "defaultConfig {\n        applicationId \"com.framedb.app\"");
+                fs.writeFileSync(gPath, content);
+              }
+            }
+          '
+
+      - name: Build APK File
         env:
           EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
