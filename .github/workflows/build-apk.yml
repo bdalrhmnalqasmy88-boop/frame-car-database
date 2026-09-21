@@ -34,14 +34,18 @@ jobs:
       - name: Prebuild Android
         env:
           NODE_ENV: production
+          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
+          rm -rf android
           npx expo prebuild --platform android --clean
 
       - name: Build APK with Gradle
+        env:
+          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
