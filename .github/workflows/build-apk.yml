@@ -45,30 +45,23 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Generate Android Project via Expo
+      - name: Expo Prebuild
+        env:
+          NODE_ENV: production
         run: |
           rm -rf android
-          npx expo prebuild --platform android --no-install
+          npx expo prebuild --platform android --clean
 
-      - name: Hardcode Package Name in Android Manifest & Gradle
+      - name: Build APK with Gradle
+        env:
+          NODE_ENV: production
+          EXPO_USE_COMMUNITY_AUTOLINKING: "1"
+          REACT_NATIVE_NODE_BINARY: /usr/local/bin/node
         run: |
-          node -e '
-            const fs = require("fs");
-            const gPath = "android/app/build.gradle";
-            if (fs.existsSync(gPath)) {
-              let content = fs.readFileSync(gPath, "utf8");
-              if (!content.includes("namespace")) {
-                content = content.replace(/android\s*\{/, "android {\n    namespace \"com.framedb.app\"");
-                fs.writeFileSync(gPath, content);
-              }
-            }
-          '
-
-      - name: Build APK File
-        run: |
+          export PATH=$PATH:/usr/local/bin
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -x test
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m" -x test
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
