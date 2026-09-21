@@ -21,6 +21,24 @@ jobs:
         run: |
           npm install --legacy-peer-deps
 
+      - name: Force Fix Package Name in app.json
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (fs.existsSync("app.json")) {
+              let data = JSON.parse(fs.readFileSync("app.json", "utf8"));
+              if (!data.expo) data.expo = {};
+              if (!data.expo.android) data.expo.android = {};
+              data.expo.android.package = "com.framedb.app";
+              fs.writeFileSync("app.json", JSON.stringify(data, null, 2));
+              console.log("Package name injected successfully!");
+            }
+          '
+
+      - name: Clean Old Native Android Directory
+        run: |
+          rm -rf android
+
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
@@ -31,12 +49,11 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Prebuild Android
+      - name: Fresh Expo Prebuild
         env:
           NODE_ENV: production
           EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
-          rm -rf android
           npx expo prebuild --platform android --clean
 
       - name: Build APK with Gradle
@@ -45,7 +62,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m"
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
