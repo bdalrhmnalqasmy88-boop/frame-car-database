@@ -1,0 +1,19 @@
+{
+  "name": "فريم - قاعدة بيانات مقاسات فريمات السيارات",
+  "short_name": "فريم",
+  "description": "تطبيق لإدارة قاعدة بيانات مقاسات وصور فريمات السيارات للطباعة والإعلان",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f9fafb",
+  "theme_color": "#1c66f0",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/png"
+    }
+  ]
+}
