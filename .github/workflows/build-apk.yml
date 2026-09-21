@@ -21,22 +21,22 @@ jobs:
         run: |
           npm install --legacy-peer-deps
 
-      - name: Force Fix Package Name in app.json
+      - name: Inject Package Name to app.json & Remove Old Android Directory
         run: |
+          # 1. إجبار إضافة package اسم الحزمة في app.json
           node -e '
             const fs = require("fs");
-            if (fs.existsSync("app.json")) {
-              let data = JSON.parse(fs.readFileSync("app.json", "utf8"));
-              if (!data.expo) data.expo = {};
-              if (!data.expo.android) data.expo.android = {};
-              data.expo.android.package = "com.framedb.app";
-              fs.writeFileSync("app.json", JSON.stringify(data, null, 2));
-              console.log("Package name injected successfully!");
+            let file = "app.json";
+            if (fs.existsSync(file)) {
+              let config = JSON.parse(fs.readFileSync(file, "utf8"));
+              if (!config.expo) config.expo = {};
+              if (!config.expo.android) config.expo.android = {};
+              config.expo.android.package = "com.framedb.app";
+              fs.writeFileSync(file, JSON.stringify(config, null, 2));
+              console.log("SUCCESS: Package name inserted into app.json");
             }
           '
-
-      - name: Clean Old Native Android Directory
-        run: |
+          # 2. حذف مجلد android النقال القديم لمنع التعارض
           rm -rf android
 
       - name: Setup Java JDK
@@ -49,12 +49,19 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Fresh Expo Prebuild
+      - name: Expo Prebuild (Generate Fresh Android Project)
         env:
           NODE_ENV: production
           EXPO_USE_COMMUNITY_AUTOLINKING: "1"
         run: |
           npx expo prebuild --platform android --clean
+
+      - name: Fix Package Name in Native Build Files
+        run: |
+          # التأكد من وجود packageName داخل build.gradle
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's/namespace .*/namespace "com.framedb.app"/' android/app/build.gradle || true
+          fi
 
       - name: Build APK with Gradle
         env:
