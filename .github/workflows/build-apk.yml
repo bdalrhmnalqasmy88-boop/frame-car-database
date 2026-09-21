@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      EXPO_NO_TELEMETRY: "1"
+      CI: "1"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -17,53 +21,33 @@ jobs:
         with:
           node-version: 20
 
-      - name: Organize Files if Subfolder Exists
-        run: |
-          if [ -d "frame-car-database" ] && [ -f "frame-car-database/package.json" ]; then
-            cp -r frame-car-database/* .
-            rm -rf frame-car-database
-          fi
-
-      - name: Install Dependencies
-        run: |
-          npm install --legacy-peer-deps
-
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Inject Package directly to Expo Config
+      - name: Install Dependencies
         run: |
-          node -e '
-            const fs = require("fs");
-            let file = fs.existsSync("app.json") ? "app.json" : null;
-            if (file) {
-              let config = JSON.parse(fs.readFileSync(file, "utf8"));
-              if (!config.expo) config.expo = {};
-              config.expo.android = { package: "com.framedb.app" };
-              fs.writeFileSync(file, JSON.stringify(config, null, 2));
-            }
-          '
+          npm install --legacy-peer-deps
+          npm install --legacy-peer-deps --no-save react-native-worklets@0.5.1 @react-native-community/cli @react-native-community/cli-platform-android
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Verify Expo Config
+        run: npx expo config --type public --json > /tmp/expo-config.json && node -e "const c=require('/tmp/expo-config.json'); if(!c.android||!c.android.package){throw new Error('android.package missing in app.json')} console.log('package:', c.android.package)"
 
-      - name: Build APK via EAS Local
-        env:
-          EAS_NO_VCS: "1"
+      - name: Prebuild Android Project
         run: |
-          eas build --platform android --profile preview --local --non-interactive || {
-            rm -rf android
-            npx expo prebuild --platform android
-            cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
-          }
+          rm -rf android
+          npx expo prebuild --platform android --clean --no-install
+
+      - name: Build Debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frame-app-apk
-          path: |
-            *.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
