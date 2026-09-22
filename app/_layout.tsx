@@ -4,8 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { I18nManager } from 'react-native';
+
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useServiceWorker } from '@/hooks/useServiceWorker';
+
 import {
   Cairo_400Regular,
   Cairo_600SemiBold,
@@ -21,15 +23,21 @@ export default function RootLayout() {
   useFrameworkReady();
   useServiceWorker();
 
-  useFonts({
+  const [fontsLoaded] = useFonts({
     'Cairo-Regular': Cairo_400Regular,
     'Cairo-SemiBold': Cairo_600SemiBold,
     'Cairo-Bold': Cairo_700Bold,
   });
 
   useEffect(() => {
-    void SplashScreen.hideAsync().catch(() => undefined);
-  }, []);
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <>
@@ -39,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="car/[id]/edit" />
         <Stack.Screen name="+not-found" />
       </Stack>
+
       <StatusBar style="light" />
     </>
   );
