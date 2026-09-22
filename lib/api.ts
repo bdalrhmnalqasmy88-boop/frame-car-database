@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { supabase, type CarFrame, type CarFrameInput } from './supabase';
 import {
   localGetAllCars,
@@ -15,7 +14,7 @@ import {
   localGetPendingOp,
   type PendingOperation,
 } from './localStorage';
-import { uriToBase64, base64ToDataUri, isHttpUrl } from './imageUtils';
+import { uriToBase64, base64ToDataUri } from './imageUtils';
 
 export type FetchResult = {
   cars: CarFrame[];

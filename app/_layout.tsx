@@ -21,25 +21,15 @@ export default function RootLayout() {
   useFrameworkReady();
   useServiceWorker();
 
-  const [fontsLoaded, fontError] = useFonts({
+  useFonts({
     'Cairo-Regular': Cairo_400Regular,
     'Cairo-SemiBold': Cairo_600SemiBold,
     'Cairo-Bold': Cairo_700Bold,
   });
 
   useEffect(() => {
-    const hideSplash = async () => {
-      if (fontsLoaded || fontError) {
-        await SplashScreen.hideAsync().catch(() => undefined);
-      }
-    };
-
-    hideSplash();
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, []);
 
   return (
     <>
